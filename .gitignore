@@ -1,0 +1,34 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Datasets and archives
+data/
+*.zip
+*.tar.gz
+*.tgz
+
+# PyTorch / YOLO weights
+*.pt
+*.onnx
+*.onnx.data
+
+# Video outputs
+*.mp4
+*.avi
+
+# Cache and python files
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
+
+# Output results and logs
+results/
+logs/
+task-*.log
