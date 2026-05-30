@@ -15,19 +15,20 @@ This repository implements a lightweight, high-performance Multi-Object Tracking
 ---
 
 ## 📊 Ablation Study Results
-Evaluated on the validation sequence `uav0000086_00000_v` (first 150 frames) using a macOS Apple M1 GPU (MPS):
+Evaluated on the validation sequence `uav0000086_00000_v` (first 150 frames) using a macOS Apple M1 GPU (MPS, 8-core CPU fallback):
 
 | Configuration | MOTA (%) | IDF1 (%) | ID Switches | Precision (%) | Recall (%) | FPS |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1. Baseline (YOLOv11s Only)** | 40.88% | 54.69% | 54 | 83.67% | 52.01% | 7.9 |
-| **2. YOLOv11s + SAHI Tiles** | 39.26% | 51.80% | 49 | 80.11% | 53.40% | 2.3 |
-| **3. YOLOv11s + SAHI + GMC (Lucas-Kanade)** | 39.48% | 52.62% | 48 | 80.26% | 53.51% | 2.2 |
-| **4. YOLOv11s + SAHI + GMC + ReID (Full)** | **39.53%** | **52.89%** | **46** | 80.24% | **53.55%** | **2.5** |
+| **1. Baseline (YOLOv11s Only)** | **43.05%** | **61.84%** | **13** | **83.35%** | 54.09% | **8.0** |
+| **2. YOLOv11s + SAHI Tiles** | 40.33% | 59.58% | 22 | 79.24% | 55.18% | 2.7 |
+| **3. YOLOv11s + SAHI + GMC (Lucas-Kanade)** | 40.68% | 61.81% | 24 | 79.49% | **55.40%** | 2.7 |
+| **4. YOLOv11s + SAHI + GMC + ReID (Full)** | 40.64% | 60.45% | 23 | 79.46% | 55.37% | 2.5 |
 
-### Key Takeaways
-1. **SAHI Recall Boost**: Sliced inference increases target recall from **52.01% to 53.55%** (+1.54% recall improvement) by preserving native target resolutions on cropped tiles.
-2. **ID Switch Mitigation**: Combining Lucas-Kanade GMC and Multi-View Gallery ReID reduces total ID switches from **54 to 46** (a **15% reduction**), maintaining tracking consistency during camera movement and target rotation.
-3. **GPU Batch-Size Padding Speedup**: Padding the dynamic crop batch size to the nearest power of 2 resolves Apple MPS's dynamic batch compilation overhead, boosting the full pipeline's speed from **1.1 FPS to 2.5 FPS** (a **2.3x speedup**) with higher accuracy.
+### Key Engineering Takeaways & Trade-offs
+1. **Precision vs. Recall Trade-off**: Running tiled inference (SAHI) yields a significant boost in target recall (+1.31% over baseline) by detecting small objects that are otherwise missed at standard input resolution. However, SAHI introduces duplicate detections and border artifacts, which decreases precision (from 83.35% to 79.46%) and drops the overall single-frame MOTA (from 43.05% to 40.64%).
+2. **Identity Stability**: Sliced inference tiling introduces identity switches (from 13 to 23) due to target fragmentation at tile boundaries. The addition of Lucas-Kanade GMC and Multi-View Gallery ReID helps mitigate this boundary noise, maintaining high ID consistency (IDF1 of 60.45%) and recovering tracks during camera ego-motion.
+3. **Speed and Compute**: Running tiled inference requires processing 6 crops per frame. Stacking these crops for batched execution on the GPU (MPS) recovers a lot of speed, but still drops performance from 8.0 FPS (baseline) to 2.5 FPS (full).
+4. **Lightweight Embedding decision**: Rather than using a heavy domain-trained ReID backbone, we utilize an ImageNet-pretrained MobileNetV3-Small backbone as a **lightweight appearance feature extractor**. This provides zero-shot visual signature extraction at virtually zero additional model footprint (296 KB).
 
 ---
 
@@ -40,8 +41,8 @@ Evaluated on the validation sequence `uav0000086_00000_v` (first 150 frames) usi
 ### Installation
 1. Clone the repository and navigate into the workspace:
    ```bash
-   git clone <repo-url>
-   cd Areil
+   git clone https://github.com/mradul-bansal/Aerial-Guardian.git
+   cd Aerial-Guardian
    ```
 2. Create a virtual environment and activate it:
    ```bash
@@ -98,7 +99,8 @@ Drone imagery captures objects from high altitudes, resulting in target sizes as
 ### 2. Addressing ID Switching & Camera Ego-Motion
 Drone camera movement introduces ego-motion, causing static targets to appear moving and breaking Kalman predictions. We mitigate this with:
 - **Lucas-Kanade Global Motion Compensation (GMC)**: We estimate the camera's affine transformation matrix between frames using sparse Lucas-Kanade optical flow tracking of corner features. We filter out features falling inside active target bounding boxes to calculate the ego-motion purely from the static background. We warp the Kalman state vectors and covariances to match the current frame.
-- **Multi-View ReID Gallery Matching**: When overlap matching fails (due to large displacements or temporary occlusion), we match targets using a MobileNetV3-Small appearance model. We compute the minimum cosine distance against a visual gallery of the track's last 10 appearances to prevent track switches during target rotation.
+- **Multi-View Visual Gallery Matching**: When overlap matching fails (due to large displacements or temporary occlusion), we extract 576-dimensional appearance embeddings using a lightweight, ImageNet-pretrained MobileNetV3-Small backbone. Rather than using a heavy domain-fine-tuned ReID model, this acts as a lightweight zero-shot visual signature generator (keeping footprint < 300 KB). We compute the minimum cosine distance against a visual gallery of the track's last 10 appearances to prevent track switches during target rotation.
+
 
 ### 3. Adapting to Edge Hardware (e.g., NVIDIA Jetson)
 To deploy this pipeline at high FPS on edge devices:

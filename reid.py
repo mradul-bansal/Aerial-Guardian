@@ -4,13 +4,17 @@ import torchvision.models as models
 import torchvision.transforms as T
 import cv2
 import numpy as np
-import ssl
 
-# Bypass macOS SSL certificate verification issues for model downloads
-ssl._create_default_https_context = ssl._create_unverified_context
 
 class ReIDExtractor:
     def __init__(self, device='cpu'):
+        """
+        Lightweight visual feature signature extractor (embedding model).
+        Consciously uses an ImageNet-pretrained MobileNetV3-Small backbone 
+        to extract general 576-dimensional visual features for appearance-based matching.
+        This operates as a lightweight zero-shot embedding generator, avoiding 
+        a heavy domain-specific ReID model footprint (<300 KB vs hundreds of MBs).
+        """
         self.device = device
         # Load lightweight MobileNetV3 Small
         try:

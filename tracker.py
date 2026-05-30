@@ -133,9 +133,8 @@ class Track:
         self.score = score
         
         # Confirm track if it updates
-        if self.state == 0:
-            self.state = 1
-            
+        self.state = 1
+        
         # Update embedding history
         if embedding is not None:
             self.features.append(embedding)

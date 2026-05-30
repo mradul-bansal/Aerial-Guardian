@@ -218,7 +218,7 @@ def run_pipeline(sequence_path, output_path, model_path="yolo11s.pt",
             db_w, db_h = 320, len(info_overlay) * bh_offset + 15
             cv2.rectangle(annotated_frame, (10, 10), (10 + db_w, 10 + db_h), (0, 0, 0), -1)
             # Add semitransparent alpha blending
-            cv2.addWeighted(annotated_frame, 0.7, frame, 0.3, 0, frame) # Mix overlays
+            cv2.addWeighted(annotated_frame, 0.7, frame, 0.3, 0, annotated_frame) # Mix overlays
             # Re-draw on top for crispness
             cv2.rectangle(annotated_frame, (10, 10), (10 + db_w, 10 + db_h), (30, 30, 30), -1)
             for i, text in enumerate(info_overlay):

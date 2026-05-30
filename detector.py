@@ -1,10 +1,6 @@
 import cv2
 import numpy as np
 from ultralytics import YOLO
-import ssl
-
-# Bypass macOS SSL certificate verification issues for model downloads
-ssl._create_default_https_context = ssl._create_unverified_context
 
 class TiledDetector:
     def __init__(self, model_path="yolo11s.pt", tile_size=640, overlap=160, device="cpu"):
